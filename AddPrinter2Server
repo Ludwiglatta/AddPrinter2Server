@@ -1,0 +1,147 @@
+Add-Type -AssemblyName System.Windows.Forms
+
+#Fensterdefinition
+    $Icon = New-Object system.drawing.icon ("XXX")
+    $Form = New-Object system.Windows.Forms.Form
+    $Form.Text = "AddPrinter2Server-Tool"
+    $Form.Width = 800
+    $Form.Height = 200
+    $Form.AutoScroll = $true
+    $Form.AutoSize = $false
+    $Form.AutoSizeMode = "GrowAndShrink"
+    $Form.MinimizeBox = $False
+    $Form.MaximizeBox = $False
+    $Form.WindowState = "Normal"
+    $Form.ShowInTaskbar = $True
+    $Form.StartPosition = "CenterScreen"
+    $Form.Icon = $Icon
+
+#Textblabla
+    $Label = New-Object System.Windows.Forms.Label
+    $Label.Text = "Wähle die Quelldatei für den Import aus."
+    $Label.AutoSize = $true
+    $Label.Location = New-Object System.Drawing.Size(1,1)
+
+    $TSyntax = New-Object System.Windows.Forms.Label
+    $TSyntax.Text = "Syntax der CSV: IPAdress, Portname
+                             XXX.XXX.XXX.XXX,ZZZ_ZZZ_ZZZ_ZZZ"
+    $TSyntax.AutoSize = $true
+    $TSyntax.Location = New-Object System.Drawing.Size(400,20)
+
+#FileExplorer für Quelldatei
+    Function Get-csv-File(){
+        $FEforinput = New-Object System.Windows.Forms.OpenFileDialog 
+        $FEforinput.Multiselect = $false
+        $FEforinput.Filter = 'CSV-Dateien (*.csv)|*.csv'
+        $FEforinput.ShowDialog()
+        $Global:SelFile = $FEforinput.FileName
+        $PathTB.Text = $FEforinput.FileName
+    }
+
+#Import-Funktion
+        Function Import(){
+            $printers = import-Csv $Global:SelFile
+
+            foreach($printer in $printers) {
+                CreatePrinterPort $($printer.IPAddress) $($printer.Portname)
+                CreatePrinter $($printer.IPAddress) $($printer.Portname)
+            }
+        }
+        function CreatePrinter {
+            $server = $Global:selServer
+            $print = ([WMICLASS]"\\$server\ROOT\cimv2:Win32_Printer").createInstance()
+            $print.drivername = $Global:selDriver
+            $print.PortName = $args[0]
+            $print.Shared = $false
+            $print.DeviceID = $args[1]
+            $print.Name = $args[1]
+            $print.Put()
+        }
+
+        function CreatePrinterPort {
+            $server = $Global:selServer
+            $port = ([WMICLASS]"\\$server\ROOT\cimv2:Win32_TCPIPPrinterPort").createInstance()
+            $port.Name = $args[0]
+            $port.SNMPEnabled = $false
+            $port.Protocol = 1
+            $port.HostAddress = $args[0]
+            $port.Put()
+        }
+#Button um File Explorer aufzurufen
+    $FEforinputButton = New-Object System.Windows.Forms.Button
+    $FEforinputButton.Location = New-Object System.Drawing.Size(1,15) 
+    $FEforinputButton.Text = "Input-Datei"
+    $FEforinputButton.Add_Click({Get-csv-File})
+
+#Button für Import
+    $importButton = New-Object System.Windows.Forms.Button
+    $importButton.Location = New-Object System.Drawing.Size(475,75) 
+    $importButton.Text = "IMPORT"
+    $importButton.Add_Click({
+        $Global:selDriver = $DropDownDriver.SelectedItem
+        $Global:selServer = $DropDownServer.SelectedItem 
+        Import})
+
+#Textbox für den Pfad
+    $PathTB = New-Object System.Windows.Forms.TextBox
+    $PathTB.ClientSize = New-Object System.Drawing.Size(300)
+    $PathTB.Location = New-Object System.Drawing.Size(80,16)
+    $PathTB.Text = $Global:SelFile
+    $PathTB.ReadOnly = $True
+
+# Labeldefinition für das Drop-Down
+    $Tserver = New-Object System.Windows.Forms.Label
+    $Tserver.Text = "Printserver:"
+    $Tserver.AutoSize = $true
+    $Tserver.Location = New-Object System.Drawing.Size(1,50)
+
+    $Tdrivername = New-Object System.Windows.Forms.Label
+    $Tdrivername.Text = "Treiber:"
+    $Tdrivername.AutoSize = $true
+    $Tdrivername.Location = New-Object System.Drawing.Size(20,80)
+
+#Drop-Down Menü
+    #Treiber
+        $driver1 = "Generic / Text Only"
+        $driver2 = "blank"
+        $driverlist = @($driver1,$driver2)
+        $DropDownDriver = New-Object System.Windows.Forms.ComboBox 
+        $DropDownDriver.Location = New-Object System.Drawing.Size(70,80) 
+        $DropDownDriver.Size = New-Object System.Drawing.Size(180,20) 
+        $DropDownDriver.DropDownHeight = 200
+        $DropDownDriver.DropDownStyle = 'DropDownList'
+        
+        foreach ($driver in $driverlist) {
+            $DropDownDriver.Items.Add($driver)
+            }
+
+    #Server
+        $server1 = "." # "." = Localhost
+        $server2 = "XXX.XXX.XXX.XXX"
+        $serverlist = @($server1,$server2)
+        $DropDownServer = New-Object System.Windows.Forms.ComboBox 
+        $DropDownServer.Location = New-Object System.Drawing.Size(70,50)
+        $DropDownServer.Size = New-Object System.Drawing.Size(180,20) 
+        $DropDownServer.DropDownHeight = 200 
+        $DropDownServer.DropDownStyle = 'DropDownList'
+  
+        foreach ($server in $serverlist) {
+            $DropDownServer.Items.Add($server)
+            }
+
+
+
+#In das Fenster integrieren
+    $Form.Controls.Add($PathTB)
+    $Form.Controls.Add($FEforinputButton)
+    $Form.Controls.Add($Label)
+    $Form.Controls.Add($TSyntax)
+    $Form.Controls.Add($Tdrivername)
+    $Form.Controls.Add($Tserver)
+    $Form.Controls.Add($DropDownDriver)
+    $Form.Controls.Add($DropDownServer)
+    $Form.Controls.Add($importButton)
+
+##################
+$Form.ShowDialog()
+##################
